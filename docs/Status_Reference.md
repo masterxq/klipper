@@ -369,6 +369,25 @@ The following information is available in the `query_endstops` object
   the QUERY_ENDSTOP command must be run prior to the macro containing
   this reference.
 
+## screws_tilt_adjust
+
+The following information is available in the `screws_tilt_adjust`
+object:
+- `error`: Returns True if the most recent `SCREWS_TILT_CALCULATE`
+  command included the `MAX_DEVIATION` parameter and any of the probed
+  screw points exceeded the specified `MAX_DEVIATION`.
+- `results["<screw>"]`: A dictionary containing the following keys:
+  - `z`: The measured Z height of the screw location.
+  - `sign`: A string specifying the direction to turn to screw for the
+    necessary adjustment. Either "CW" for clockwise or "CCW" for
+    counterclockwise.
+  - `adjust`: The number of screw turns to adjust the screw, given in
+    the format "HH:MM," where "HH" is the number of full screw turns
+    and "MM" is the number of "minutes of a clock face" representing
+    a partial screw turn. (E.g. "01:15" would mean to turn the screw
+    one and a quarter revolutions.)
+  - `is_base`: Returns True if this is the base screw.
+
 ## servo
 
 The following information is available in

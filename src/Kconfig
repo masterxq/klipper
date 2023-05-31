@@ -15,7 +15,7 @@ choice
     config MACH_ATSAM
         bool "SAM3/SAM4/SAM E70 (Due and Duet)"
     config MACH_ATSAMD
-        bool "SAMD21/SAMD51/SAME5x"
+        bool "SAMC21/SAMD21/SAMD51/SAME5x"
     config MACH_LPC176X
         bool "LPC176x (Smoothieboard)"
     config MACH_STM32
@@ -95,7 +95,7 @@ config CANBUS
     default y if CANSERIAL || USBCANBUS
 config CANBUS_FREQUENCY
     int "CAN bus speed" if LOW_LEVEL_OPTIONS && CANBUS
-    default 500000
+    default 1000000
 config CANBUS_FILTER
     bool
     default y if CANSERIAL

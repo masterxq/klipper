@@ -26,27 +26,18 @@ class ExtruderStepper:
                                             self._handle_connect)
         gcode = self.printer.lookup_object('gcode')
         if self.name == 'extruder':
-            gcode.register_mux_command("SET_PRESSURE_ADVANCE", "EXTRUDER",
-                                       None,
+            gcode.register_mux_command("SET_PRESSURE_ADVANCE", "EXTRUDER", None,
                                        self.cmd_default_SET_PRESSURE_ADVANCE,
                                        desc=self.cmd_SET_PRESSURE_ADVANCE_help)
         gcode.register_mux_command("SET_PRESSURE_ADVANCE", "EXTRUDER",
                                    self.name, self.cmd_SET_PRESSURE_ADVANCE,
                                    desc=self.cmd_SET_PRESSURE_ADVANCE_help)
-        gcode.register_mux_command("SET_EXTRUDER_ROTATION_DISTANCE",
-                                   "EXTRUDER",
+        gcode.register_mux_command("SET_EXTRUDER_ROTATION_DISTANCE", "EXTRUDER",
                                    self.name, self.cmd_SET_E_ROTATION_DISTANCE,
                                    desc=self.cmd_SET_E_ROTATION_DISTANCE_help)
         gcode.register_mux_command("SYNC_EXTRUDER_MOTION", "EXTRUDER",
                                    self.name, self.cmd_SYNC_EXTRUDER_MOTION,
                                    desc=self.cmd_SYNC_EXTRUDER_MOTION_help)
-        gcode.register_mux_command("SET_EXTRUDER_STEP_DISTANCE", "EXTRUDER",
-                                   self.name, self.cmd_SET_E_STEP_DISTANCE,
-                                   desc=self.cmd_SET_E_STEP_DISTANCE_help)
-        gcode.register_mux_command("SYNC_STEPPER_TO_EXTRUDER", "STEPPER",
-                                   self.name,
-                                   self.cmd_SYNC_STEPPER_TO_EXTRUDER,
-                                   desc=self.cmd_SYNC_STEPPER_TO_EXTRUDER_help)
     def _handle_connect(self):
         toolhead = self.printer.lookup_object('toolhead')
         toolhead.register_step_generator(self.stepper.generate_steps)
@@ -136,24 +127,6 @@ class ExtruderStepper:
         self.sync_to_extruder(ename)
         gcmd.respond_info("Extruder '%s' now syncing with '%s'"
                           % (self.name, ename))
-    cmd_SET_E_STEP_DISTANCE_help = "Set extruder step distance"
-    def cmd_SET_E_STEP_DISTANCE(self, gcmd):
-        step_dist = gcmd.get_float('DISTANCE', None, above=0.)
-        if step_dist is not None:
-            toolhead = self.printer.lookup_object('toolhead')
-            toolhead.flush_step_generation()
-            rd, steps_per_rotation = self.stepper.get_rotation_distance()
-            self.stepper.set_rotation_distance(step_dist * steps_per_rotation)
-        else:
-            step_dist = self.stepper.get_step_dist()
-        gcmd.respond_info("Extruder '%s' step distance set to %0.6f"
-                          % (self.name, step_dist))
-    cmd_SYNC_STEPPER_TO_EXTRUDER_help = "Set extruder stepper"
-    def cmd_SYNC_STEPPER_TO_EXTRUDER(self, gcmd):
-        ename = gcmd.get('EXTRUDER')
-        self.sync_to_extruder(ename)
-        gcmd.respond_info("Extruder '%s' now syncing with '%s'"
-                          % (self.name, ename))
 
 # Tracking for hotend heater, extrusion motion queue, and extruder stepper
 class PrinterExtruder:
@@ -162,38 +135,29 @@ class PrinterExtruder:
         self.name = config.get_name()
         self.last_position = 0.
         # Setup hotend heater
-        shared_heater = config.get('shared_heater', None)
         pheaters = self.printer.load_object(config, 'heaters')
         gcode_id = 'T%d' % (extruder_num,)
-        if shared_heater is None:
-            self.heater = pheaters.setup_heater(config, gcode_id)
-        else:
-            config.deprecate('shared_heater')
-            self.heater = pheaters.lookup_heater(shared_heater)
+        self.heater = pheaters.setup_heater(config, gcode_id)
         # Setup kinematic checks
         self.nozzle_diameter = config.getfloat('nozzle_diameter', above=0.)
-        self.filament_diameter = config.getfloat(
+        filament_diameter = config.getfloat(
             'filament_diameter', minval=self.nozzle_diameter)
-        self.set_filament_diameter()
+        self.filament_area = math.pi * (filament_diameter * .5)**2
         def_max_cross_section = 4. * self.nozzle_diameter**2
         def_max_extrude_ratio = def_max_cross_section / self.filament_area
-        self.max_cross_section = config.getfloat(
+        max_cross_section = config.getfloat(
             'max_extrude_cross_section', def_max_cross_section, above=0.)
-        self.max_extrude_ratio = self.max_cross_section / self.filament_area
+        self.max_extrude_ratio = max_cross_section / self.filament_area
         logging.info("Extruder max_extrude_ratio=%.6f", self.max_extrude_ratio)
         toolhead = self.printer.lookup_object('toolhead')
         max_velocity, max_accel = toolhead.get_max_velocity()
-        self.max_e_only_velocity = config.getfloat(
+        self.max_e_velocity = config.getfloat(
             'max_extrude_only_velocity', max_velocity * def_max_extrude_ratio
             , above=0.)
-        self.max_e_move_velocity = config.getfloat(
-            'max_extruder_velocity', max_velocity * def_max_extrude_ratio,
-            maxval=10000.0, above=0.)
-        self.set_max_velocity()
         self.max_e_accel = config.getfloat(
             'max_extrude_only_accel', max_accel * def_max_extrude_ratio
             , above=0.)
-        self.max_e_only_dist = config.getfloat(
+        self.max_e_dist = config.getfloat(
             'max_extrude_only_distance', 50., minval=0.)
         self.instant_corner_v = config.getfloat(
             'instantaneous_corner_velocity', 1., minval=0.)
@@ -229,8 +193,8 @@ class PrinterExtruder:
                                    self.name,
                                    self.cmd_GET_MAX_EXTRUDER_VELOCITY,
                                    desc=self.cmd_GET_MAX_EXTRUDER_VELOCITY_help)
-    def update_move_time(self, flush_time):
-        self.trapq_finalize_moves(self.trapq, flush_time)
+    def update_move_time(self, flush_time, clear_history_time):
+        self.trapq_finalize_moves(self.trapq, flush_time, clear_history_time)
     def get_status(self, eventtime):
         sts = self.heater.get_status(eventtime)
         sts['can_extrude'] = self.heater.can_extrude
@@ -280,14 +244,13 @@ class PrinterExtruder:
                 "See the 'min_extrude_temp' config option for details")
         if (not move.axes_d[0] and not move.axes_d[1]) or axis_r < 0.:
             # Extrude only move (or retraction move) - limit accel and velocity
-            if abs(move.axes_d[3]) > self.max_e_only_dist:
+            if abs(move.axes_d[3]) > self.max_e_dist:
                 raise self.printer.command_error(
                     "Extrude only move too long (%.3fmm vs %.3fmm)\n"
                     "See the 'max_extrude_only_distance' config"
-                    " option for details"
-                    % (move.axes_d[3], self.max_e_only_dist))
+                    " option for details" % (move.axes_d[3], self.max_e_dist))
             inv_extrude_r = 1. / abs(axis_r)
-            move.limit_speed(self.max_e_only_velocity * inv_extrude_r,
+            move.limit_speed(self.max_e_velocity * inv_extrude_r,
                              self.max_e_accel * inv_extrude_r)
         elif axis_r > self.max_extrude_ratio:
             if move.axes_d[3] <= self.nozzle_diameter * self.max_extrude_ratio:
@@ -362,7 +325,6 @@ class PrinterExtruder:
     def cmd_M109(self, gcmd):
         # Set Extruder Temperature and Wait
         self.cmd_M104(gcmd, wait=True)
-
     cmd_ACTIVATE_EXTRUDER_help = "Change the active extruder"
     def cmd_ACTIVATE_EXTRUDER(self, gcmd):
         toolhead = self.printer.lookup_object('toolhead')
@@ -429,7 +391,7 @@ class PrinterExtruder:
 class DummyExtruder:
     def __init__(self, printer):
         self.printer = printer
-    def update_move_time(self, flush_time):
+    def update_move_time(self, flush_time, clear_history_time):
         pass
     def check_move(self, move):
         raise move.move_error("Extrude when no extruder present")

@@ -186,7 +186,7 @@ class PrinterExtruder:
         self.max_e_only_velocity = config.getfloat(
             'max_extrude_only_velocity', max_velocity * def_max_extrude_ratio
             , above=0.)
-        self.max_e_velocity = config.getfloat(
+        self.max_e_move_velocity = config.getfloat(
             'max_extruder_velocity', max_velocity * def_max_extrude_ratio,
             maxval=10000.0, above=0.)
         self.set_max_velocity()
@@ -249,11 +249,11 @@ class PrinterExtruder:
     # the enviorement.
     def set_max_velocity(self, e_velocity = None):
         if e_velocity is None:
-            e_velocity = self.max_e_velocity
+            e_velocity = self.max_e_move_velocity
         if e_velocity is None:
             # Wrong usage of the function
             raise self.printer.command_error("Can not update extr. velocity")
-        self.max_e_velocity = e_velocity
+        self.max_e_move_velocity = e_velocity
         self.max_e_volumetric_speed = e_velocity * self.filament_area
 
     def set_filament_diameter(self, f_diameter = None):
@@ -306,12 +306,12 @@ class PrinterExtruder:
             # nessesary
             toolhead_speed = math.sqrt(move.max_cruise_v2)
             e_velocity = (move.axes_d[3] * toolhead_speed) / move.move_d
-            if e_velocity > self.max_e_velocity:
+            if e_velocity > self.max_e_move_velocity:
                 # limit the speed if the move excedes max e speed.
                 # use the relation between max and current velocity to scale
                 # down
                 new_speed_limit = (
-                    toolhead_speed*(self.max_e_velocity/e_velocity))
+                    toolhead_speed*(self.max_e_move_velocity/e_velocity))
                 #logging.info(
                 #    "Limiting the current move speed to respect max e speed"
                 #    "from: %f to: %f"
@@ -393,9 +393,9 @@ class PrinterExtruder:
         "EXTRUDER_VELOCITY")
     def cmd_SET_MAX_EXTRUDER_VELOCITY(self, gcmd):
         max_vol_speed = gcmd.get_float('VOLUMETRIC_SPEED', None)
-        max_e_velocity = gcmd.get_float('EXTRUDER_VELOCITY', None)
-        if ( (max_vol_speed is None and max_e_velocity is None) or
-             (max_vol_speed is not None and max_e_velocity is not None) ):
+        max_e_move_velocity = gcmd.get_float('EXTRUDER_VELOCITY', None)
+        if ( (max_vol_speed is None and max_e_move_velocity is None) or
+             (max_vol_speed is not None and max_e_move_velocity is not None) ):
             raise gcmd.error("Specify volumetric OR extruder speed")
         if max_vol_speed is not None:
             if max_vol_speed <= 0:
@@ -407,23 +407,23 @@ class PrinterExtruder:
                 "%0.3f filament diameter, the max extruder velocity is %0.3f "
                 "now."
                 % (self.max_e_volumetric_speed, self.filament_diameter,
-                self.max_e_velocity))
+                self.max_e_move_velocity))
         else:
-            if max_e_velocity <= 0:
+            if max_e_move_velocity <= 0:
                 raise gcmd.error("SPEED must be greater than 0")
-            self.set_max_velocity(max_e_velocity)
+            self.set_max_velocity(max_e_move_velocity)
             gcmd.respond_info(
                 "max extruder velocity has been set to %0.3f coresponding to "
                 "%0.3f filament diameter, the max volumetric speed is %0.3f "
                 "now."
-                % (self.max_e_velocity, self.filament_diameter,
+                % (self.max_e_move_velocity, self.filament_diameter,
                 self.max_e_volumetric_speed))
     cmd_GET_MAX_EXTRUDER_VELOCITY_help = (
         "Returns the maximum extruder velocity and maximum volumetric speed")
     def cmd_GET_MAX_EXTRUDER_VELOCITY(self, gcmd):
         gcmd.respond_info(
             "extruder: max_velocity: %0.3f max_volumeric_speed: %0.3f"
-            % (self.max_e_velocity, self.max_e_volumetric_speed))
+            % (self.max_e_move_velocity, self.max_e_volumetric_speed))
 
 # Dummy extruder class used when a printer has no extruder at all
 class DummyExtruder:

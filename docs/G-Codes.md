@@ -146,9 +146,19 @@ The following commands are available when the
 section](Config_Reference.md#axis_twist_compensation) is enabled.
 
 #### AXIS_TWIST_COMPENSATION_CALIBRATE
-`AXIS_TWIST_COMPENSATION_CALIBRATE [SAMPLE_COUNT=<value>]`: Initiates the X
-twist calibration wizard. `SAMPLE_COUNT` specifies the number of points along
-the X axis to calibrate at and defaults to 3.
+`AXIS_TWIST_COMPENSATION_CALIBRATE [AXIS=<X|Y>] [AUTO=<True|False>]
+[SAMPLE_COUNT=<value>]`
+
+Calibrates axis twist compensation by specifying the target axis or
+enabling automatic calibration.
+
+- **AXIS:** Define the axis (`X` or `Y`) for which the twist compensation
+will be calibrated. If not specified, the axis defaults to `'X'`.
+
+- **AUTO:** Enables automatic calibration mode. When `AUTO=True`, the
+calibration will run for both the X and Y axes. In this mode, `AXIS`
+cannot be specified. If both `AXIS` and `AUTO` are provided, an error
+will be raised.
 
 ### [bed_mesh]
 
@@ -498,6 +508,20 @@ enabled.
 #### SET_FAN_SPEED
 `SET_FAN_SPEED FAN=config_name SPEED=<speed>` This command sets the
 speed of a fan. "speed" must be between 0.0 and 1.0.
+
+`SET_FAN_SPEED PIN=config_name TEMPLATE=<template_name>
+[<param_x>=<literal>]`: If `TEMPLATE` is specified then it assigns a
+[display_template](Config_Reference.md#display_template) to the given
+fan. For example, if one defined a `[display_template
+my_fan_template]` config section then one could assign
+`TEMPLATE=my_fan_template` here. The display_template should produce a
+string containing a floating point number with the desired value. The
+template will be continuously evaluated and the fan will be
+automatically set to the resulting speed. One may set display_template
+parameters to use during template evaluation (parameters will be
+parsed as Python literals). If TEMPLATE is an empty string then this
+command will clear any previous template assigned to the pin (one can
+then use `SET_FAN_SPEED` commands to manage the values directly).
 
 ### [filament_switch_sensor]
 
@@ -880,6 +904,20 @@ output `VALUE`. VALUE should be 0 or 1 for "digital" output pins. For
 PWM pins, set to a value between 0.0 and 1.0, or between 0.0 and
 `scale` if a scale is configured in the output_pin config section.
 
+`SET_PIN PIN=config_name TEMPLATE=<template_name> [<param_x>=<literal>]`:
+If `TEMPLATE` is specified then it assigns a
+[display_template](Config_Reference.md#display_template) to the given
+pin. For example, if one defined a `[display_template
+my_pin_template]` config section then one could assign
+`TEMPLATE=my_pin_template` here. The display_template should produce a
+string containing a floating point number with the desired value. The
+template will be continuously evaluated and the pin will be
+automatically set to the resulting value. One may set display_template
+parameters to use during template evaluation (parameters will be
+parsed as Python literals). If TEMPLATE is an empty string then this
+command will clear any previous template assigned to the pin (one can
+then use `SET_PIN` commands to manage the values directly).
+
 ### [palette2]
 
 The following commands are available when the
@@ -1079,20 +1117,19 @@ is enabled (also see the
 all enabled accelerometer chips.
 
 #### TEST_RESONANCES
-`TEST_RESONANCES AXIS=<axis> OUTPUT=<resonances,raw_data>
+`TEST_RESONANCES AXIS=<axis> [OUTPUT=<resonances,raw_data>]
 [NAME=<name>] [FREQ_START=<min_freq>] [FREQ_END=<max_freq>]
-[HZ_PER_SEC=<hz_per_sec>] [CHIPS=<adxl345_chip_name>]
-[POINT=x,y,z] [INPUT_SHAPING=[<0:1>]]`: Runs the resonance
+[ACCEL_PER_HZ=<accel_per_hz>] [HZ_PER_SEC=<hz_per_sec>] [CHIPS=<chip_name>]
+[POINT=x,y,z] [INPUT_SHAPING=<0:1>]`: Runs the resonance
 test in all configured probe points for the requested "axis" and
 measures the acceleration using the accelerometer chips configured for
 the respective axis. "axis" can either be X or Y, or specify an
 arbitrary direction as `AXIS=dx,dy`, where dx and dy are floating
 point numbers defining a direction vector (e.g. `AXIS=X`, `AXIS=Y`, or
 `AXIS=1,-1` to define a diagonal direction). Note that `AXIS=dx,dy`
-and `AXIS=-dx,-dy` is equivalent. `adxl345_chip_name` can be one or
-more configured adxl345 chip,delimited with comma, for example
-`CHIPS="adxl345, adxl345 rpi"`. Note that `adxl345` can be omitted from
-named adxl345 chips. If POINT is specified it will override the point(s)
+and `AXIS=-dx,-dy` is equivalent. `chip_name` can be one or
+more configured accel chips, delimited with comma, for example
+`CHIPS="adxl345, adxl345 rpi"`. If POINT is specified it will override the point(s)
 configured in `[resonance_tester]`. If `INPUT_SHAPING=0` or not set(default),
 disables input shaping for the resonance testing, because
 it is not valid to run the resonance testing with the input shaper
@@ -1109,8 +1146,9 @@ frequency response is calculated (across all probe points) and written into
 
 #### SHAPER_CALIBRATE
 `SHAPER_CALIBRATE [AXIS=<axis>] [NAME=<name>] [FREQ_START=<min_freq>]
-[FREQ_END=<max_freq>] [HZ_PER_SEC=<hz_per_sec>] [CHIPS=<adxl345_chip_name>]
-[MAX_SMOOTHING=<max_smoothing>]`: Similarly to `TEST_RESONANCES`, runs
+[FREQ_END=<max_freq>] [ACCEL_PER_HZ=<accel_per_hz>][HZ_PER_SEC=<hz_per_sec>]
+[CHIPS=<chip_name>] [MAX_SMOOTHING=<max_smoothing>] [INPUT_SHAPING=<0:1>]`:
+Similarly to `TEST_RESONANCES`, runs
 the resonance test as configured, and tries to find the optimal
 parameters for the input shaper for the requested axis (or both X and
 Y axes if `AXIS` parameter is unset). If `MAX_SMOOTHING` is unset, its
